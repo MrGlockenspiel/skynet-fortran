@@ -19,12 +19,6 @@ module listener
     type(channel_t), allocatable :: channels(:)
     
 contains
-    ! this is by far the worst thing i have ever written in any language
-    ! basically, every time this is called it will query all channels in the listener list
-    ! if the message ID matches the last ID checked, ignore
-    ! if it doesnt, try to parse a command out of it 
-    ! if it doesnt start with a prefix, push the message content to the markov chain 
-    ! if 10 messages have been counted, generate a string of 10 words and send it where the 10th message was sent
     subroutine listen
         integer :: idx
         type(message_t) :: msg
@@ -39,7 +33,8 @@ contains
                 call parse_command(msg)
 
                 if (channels(idx)%msg_count > 9) then
-                    call send_message(channels(idx)%channel_id, gen_string(16))
+                    call send_message(channels(idx)%channel_id, gen_string(10))
+                    channels(idx)%msg_count = 0
                 end if
             end if
         end do 
@@ -60,7 +55,8 @@ contains
                 call parse_command(msg)
 
                 if (channels(idx)%msg_count > 9) then
-                    call send_message(channels(idx)%channel_id, gen_string(16))
+                    call send_message(channels(idx)%channel_id, gen_string(10))
+                    channels(idx)%msg_count = 0
                 end if
             end if
         end do 

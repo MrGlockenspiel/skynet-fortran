@@ -1,5 +1,5 @@
 name = "skynet-fortran"
-version = "0.1.0"
+version = "0.1.1"
 license = "GPLv3"
 author = "MrGlockenspiel"
 maintainer = "mrglockenspiel@protonmail.com"
@@ -21,6 +21,5 @@ source-form = "free"
 
 [dependencies]
 stdlib = "*"
-openmp = "*"
 http = { git = "https://github.com/fortran-lang/http-client.git" }
 json-fortran = { git = "https://github.com/jacobwilliams/json-fortran.git" }

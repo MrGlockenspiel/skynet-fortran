@@ -29,16 +29,17 @@ contains
             ! request failed
             print *, "Error: ", response%err_msg, " [", response%status_code, "]"
         end if 
-    end subroutine discord_post
+    end subroutine
 
     function discord_get(url, token) result(res)
         character(len=:), allocatable, intent(in) :: url
         character(len=:), allocatable, intent(in) :: token
 
+        type(json_file) :: res
+
         type(pair_type), allocatable :: req_header(:)
         type(response_type) :: response 
 
-        type(json_file) :: res
 
         req_header = [ &
             pair_type('Content-Type', 'application/json'), &
@@ -52,6 +53,6 @@ contains
         end if 
 
         call res%initialize()
-        call res%deserialize(response%content)
-    end function discord_get
+        if (response%ok) call res%deserialize(response%content)
+    end function
 end module discord_requests

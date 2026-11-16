@@ -1,14 +1,14 @@
 module listener
     use discord_api, only: send_message, get_last_channel_message
     use types, only: message_t
-    use markov, only: push_string, gen_string, reset_data
+    use markov, only: markov_generator_t
     use json_module, only: json_file
     use util, only: i32_to_str
 
     implicit none
-    
+
     private
-    public :: listen, omp_listen, load_channels, print_channels, parse_command
+    public :: listen, load_channels, print_channels, parse_command
 
     type channel_t
         character(len=:), allocatable :: channel_id
@@ -17,76 +17,77 @@ module listener
     end type
 
     type(channel_t), allocatable :: channels(:)
-    
+
 contains
-    subroutine listen
+    subroutine listen(markov)
+        type(markov_generator_t), intent(inout) :: markov
         integer :: idx
         type(message_t) :: msg
 
         do idx = 1, size(channels)
             msg = get_last_channel_message(channels(idx)%channel_id)
-            
+
+            if (.not. allocated(msg%id)) cycle
+            if (len(msg%id) == 0) cycle
+
             if (msg%id /= channels(idx)%last_msg_id) then
                 channels(idx)%last_msg_id = msg%id
                 channels(idx)%msg_count = channels(idx)%msg_count + 1
 
-                call parse_command(msg)
+                call parse_command(msg, markov)
 
                 if (channels(idx)%msg_count > 9) then
-                    call send_message(channels(idx)%channel_id, gen_string(10))
+                    call send_message(channels(idx)%channel_id, markov%gen_string(16))
                     channels(idx)%msg_count = 0
                 end if
             end if
-        end do 
+        end do
     end subroutine listen
 
-    subroutine omp_listen
-        integer :: idx
-        type(message_t) :: msg
-
-        !$omp parallel do 
-        do idx = 1, size(channels)
-            msg = get_last_channel_message(channels(idx)%channel_id)
-            
-            if (msg%id /= channels(idx)%last_msg_id) then
-                channels(idx)%last_msg_id = msg%id
-                channels(idx)%msg_count = channels(idx)%msg_count + 1
-
-                call parse_command(msg)
-
-                if (channels(idx)%msg_count > 9) then
-                    call send_message(channels(idx)%channel_id, gen_string(10))
-                    channels(idx)%msg_count = 0
-                end if
-            end if
-        end do 
-        !$omp end parallel do
-    end subroutine omp_listen
-
-    subroutine parse_command(msg)
+    subroutine parse_command(msg, markov)
         type(message_t), intent(in) :: msg
+        type(markov_generator_t), intent(inout) :: markov
 
         character(len=7) :: cmd
 
-        if (msg%content(1:6) == "SKYNET") then
-            cmd = msg%content(8:13)
-            print *, "CMD RECEIVED: ", cmd
-            
-            select case(cmd)
-            case("HELPME")
-                print *, msg%channel_id, "    ", msg%content
-                call send_message(msg%channel_id, "```\nAVAILABLE CMDS: \n\tHELPME\n\tRSTDAT\n\tMARKOV\n```")
-            case("RSTDAT")
-                call reset_data
-                call send_message(msg%channel_id, "OK")
-            case("MARKOV")
-                call send_message(msg%channel_id, gen_string(64))
-            end select
-        else 
-            call push_string(msg%content)
-        endif
+        if (len(msg%content) >= 6) then
+            if (msg%content(1:6) == "SKYNET") then
+                if (len(msg%content) < 13) return
+
+                cmd = msg%content(8:13)
+                print *, "CMD RECEIVED: ", cmd
+
+                select case(cmd)
+                case("HELPME")
+                    print *, msg%channel_id, "    ", msg%content
+                    call send_message(msg%channel_id, "```\nAVAILABLE CMDS: \n\tHELPME\n\tRSTDAT\n\tMARKOV\n\tSAVDAT\n\tLOADAT\n```")
+                case("RSTDAT")
+                    call markov%init
+                    call send_message(msg%channel_id, "OK")
+                case("MARKOV")
+                    call send_message(msg%channel_id, markov%gen_string(16))
+                case("SAVDAT")
+                    call markov%save_csv("saved.csv")
+                    call send_message(msg%channel_id, "OK")
+                case("LOADAT")
+                    block
+                        logical :: loaded
+
+                        call markov%load_csv("saved.csv", loaded)
+                        if (loaded) then
+                            call send_message(msg%channel_id, "OK")
+                        else
+                            call send_message(msg%channel_id, "SUPER ERROR!!!")
+                        end if
+                    end block
+                end select
+                return
+            end if
+        end if
+
+        call markov%push_string(msg%content)
     end subroutine
-    
+
     subroutine load_channels
         logical :: status
         type(json_file) :: config
@@ -95,7 +96,7 @@ contains
         call config%initialize
         call config%load("config.json")
         channel_count = count_elements_in_channel_array()
-        
+
         allocate(channels(channel_count))
         do idx = 1, channel_count
             call config%get("channels("//trim(i32_to_str(idx))//")", channels(idx)%channel_id, status)
@@ -103,10 +104,12 @@ contains
             channels(idx)%msg_count = 0
         end do
 
-        if (.not. status) then 
+        call config%destroy
+
+        if (.not. status) then
             print *, "Error loading channels from config.json"
             stop 1
-        end if 
+        end if
 
         print *, "Got channels from config.json"
 
@@ -130,12 +133,12 @@ contains
 
         call json%destroy
     end function count_elements_in_channel_array
-    
+
     subroutine print_channels
         integer :: idx
 
         do idx = 1, size(channels)
-            print *, "Channel #", trim(i32_to_str(idx)), " = ", channels(idx)%channel_id 
+            print *, "Channel #", trim(i32_to_str(idx)), " = ", channels(idx)%channel_id
         end do
     end subroutine print_channels
 end module listener

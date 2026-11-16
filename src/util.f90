@@ -10,6 +10,7 @@ contains
 
     function get_token() result(token)
         character(len=:), allocatable :: token
+        
         logical :: status
         type(json_file) :: config
 
@@ -21,6 +22,8 @@ contains
             print *, "Error loading token from config.json"
             stop 1
         end if 
+        
+        call config%destroy()
 
         print *, "Got token from config.json"
         token = trim(token)
@@ -29,6 +32,7 @@ contains
     ! https://stackoverflow.com/a/16437988
     function i64_to_str(int) result(str)
         integer(8), intent(in) :: int
+
         character(len=32) :: str 
 
         write(str, *) int
@@ -37,6 +41,7 @@ contains
 
     function i32_to_str(int) result(str)
         integer, intent(in) :: int 
+        
         character(len=16) :: str 
 
         write(str, *) int 

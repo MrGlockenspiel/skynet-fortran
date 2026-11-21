@@ -10,13 +10,16 @@ module discord_requests
 
 contains
 
-     subroutine discord_post(url, token, payload)
-        character(len=:), allocatable, intent(in) :: url 
+    subroutine discord_post(url, token, payload, success)
+        character(len=:), allocatable, intent(in) :: url
         character(len=:), allocatable, intent(in) :: token
         character(len=:), allocatable, intent(in) :: payload
-    
+        logical, optional, intent(out) :: success
+
         type(pair_type), allocatable :: req_header(:)
-        type(response_type) :: response 
+        type(response_type) :: response
+
+        if (present(success)) success = .false.
 
         req_header = [ &
             pair_type('Content-Type', 'application/json'), &
@@ -24,22 +27,26 @@ contains
         ]
 
         response = request(url=url, method=HTTP_POST, header=req_header, data=payload)
-        
+
         if (.not. response%ok) then
             ! request failed
             print *, "Error: ", response%err_msg, " [", response%status_code, "]"
-        end if 
+        else
+            if (present(success)) success = .true.
+        end if
     end subroutine
 
-    function discord_get(url, token) result(res)
+    function discord_get(url, token, success) result(res)
         character(len=:), allocatable, intent(in) :: url
         character(len=:), allocatable, intent(in) :: token
+        logical, intent(out) :: success
 
         type(json_file) :: res
 
         type(pair_type), allocatable :: req_header(:)
-        type(response_type) :: response 
+        type(response_type) :: response
 
+        success = .false.
 
         req_header = [ &
             pair_type('Content-Type', 'application/json'), &
@@ -47,12 +54,16 @@ contains
         ]
 
         response = request(url=url, method=HTTP_GET, header=req_header)
+
         if (.not. response%ok) then
             ! request failed
             print *, "Error: ", response%err_msg, " [", response%status_code, "]"
-        end if 
+            return
+        end if
 
         call res%initialize()
-        if (response%ok) call res%deserialize(response%content)
+        call res%deserialize(response%content)
+
+        success = .true.
     end function
 end module discord_requests

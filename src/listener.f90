@@ -23,10 +23,12 @@ contains
         type(markov_generator_t), intent(inout) :: markov
         integer :: idx
         type(message_t) :: msg
+        logical :: success
 
         do idx = 1, size(channels)
-            msg = get_last_channel_message(channels(idx)%channel_id)
+            msg = get_last_channel_message(channels(idx)%channel_id, success)
 
+            if (.not. success) cycle
             if (.not. allocated(msg%id)) cycle
             if (len(msg%id) == 0) cycle
 

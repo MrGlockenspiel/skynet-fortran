@@ -23,7 +23,7 @@ contains
         character(len=:), allocatable :: api_url
         character(len=:), allocatable :: payload
 
-        payload = '{"content":"'//json_escape(message)//'"}'
+        payload = '{"content":"'//message//'"}'
 
         api_url = "https://discord.com/api/v9/channels/"//channel_id//"/messages"
 
@@ -100,39 +100,4 @@ contains
 
         token = bot_token
     end subroutine
-
-    function json_escape(value) result(escaped)
-        character(len=*), intent(in) :: value
-        
-        character(len=:), allocatable :: escaped
-        
-        character(len=2) :: hex
-        integer :: i, code
-
-        escaped = ''
-        do i = 1, len(value)
-            code = iachar(value(i:i))
-            select case (code)
-            case (34)
-                escaped = escaped // achar(92) // achar(34)
-            case (92)
-                escaped = escaped // achar(92) // achar(92)
-            case (8)
-                escaped = escaped // achar(92) // 'b'
-            case (9)
-                escaped = escaped // achar(92) // 't'
-            case (10)
-                escaped = escaped // achar(92) // 'n'
-            case (12)
-                escaped = escaped // achar(92) // 'f'
-            case (13)
-                escaped = escaped // achar(92) // 'r'
-            case (0:7, 11, 14:31)
-                write(hex, '(Z2.2)') code
-                escaped = escaped // achar(92) // 'u00' // hex
-            case default
-                escaped = escaped // value(i:i)
-            end select
-        end do
-    end function json_escape
 end module
